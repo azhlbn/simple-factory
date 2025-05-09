@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, Input, Card, Image, Segment, Message, Icon, Loader, List } from 'semantic-ui-react';
 import { ethers } from 'ethers';
-import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../pages/totemConfig';
+import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../config/totem';
 
 const TotemViewer = ({ provider }) => {
   const [totemAddress, setTotemAddress] = useState('');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Image, Button, Icon, Loader, Message, Segment } from 'semantic-ui-react';
 import { ethers } from 'ethers';
-import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../pages/totemConfig';
+import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../config/totem';
 import { fetchTotemsWithMetadata } from '../utils/graphApi';
 
 const TotemList = ({ provider }) => {

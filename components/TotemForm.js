@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Button, Form, Icon, Input, Message, Segment } from 'semantic-ui-react';
 import { ethers } from 'ethers';
 import { uploadTotemToIPFS, unpinFromIPFS } from '../utils/api';
-import { TOTEM_FACTORY_ADDRESS, TOTEM_FACTORY_ABI } from '../pages/totemConfig';
+import { TOTEM_FACTORY_ADDRESS, TOTEM_FACTORY_ABI } from '../config/totem';
 
 const TotemForm = ({ provider }) => {
   const [formData, setFormData] = useState({
