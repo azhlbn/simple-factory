@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button, Form, Icon, Input, Message, Segment } from 'semantic-ui-react';
 import { ethers } from 'ethers';
-import FileUpload from './FileUpload';
+import { uploadTotemToIPFS, unpinFromIPFS } from '../utils/api';
 import { TOTEM_FACTORY_ADDRESS, TOTEM_FACTORY_ABI } from '../pages/totemConfig';
 
 const TotemForm = ({ provider }) => {
   const [formData, setFormData] = useState({
     name: '',
     symbol: '',
-    collaborators: '',
-    ipfsHash: ''
+    description: '',
+    collaborators: ''
   });
+  const [file, setFile] = useState(null);
+  const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -20,15 +22,18 @@ const TotemForm = ({ provider }) => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleFileUploaded = (ipfsHash) => {
-    setFormData({ ...formData, ipfsHash });
+  const handleFileChange = (selectedFile) => {
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFileName(selectedFile.name);
+    }
   };
 
   const createTotem = async () => {
-    const { name, symbol, ipfsHash, collaborators } = formData;
+    const { name, symbol, description, collaborators } = formData;
 
     // Валидация формы
-    if (!name || !symbol || !ipfsHash) {
+    if (!name || !symbol || !file) {
       setError('Please fill in all required fields and upload an image');
       return;
     }
@@ -38,53 +43,108 @@ const TotemForm = ({ provider }) => {
     setSuccess(false);
     setTxHash('');
 
+    // Сохраняем CID для возможного открепления
+    let metadataCid = '';
+    let imageCid = '';
+
     try {
-      // Получаем signer для транзакций
+      // 1. Сначала загружаем изображение и метаданные на IPFS
+      const metadata = {
+        name: formData.name,
+        description: formData.description,
+        symbol: formData.symbol,
+        attributes: [
+          {
+            trait_type: "Type",
+            value: "Totem"
+          }
+        ]
+      };
+      
+      const ipfsResult = await uploadTotemToIPFS(file, metadata);
+      
+      if (!ipfsResult.success) {
+        throw new Error(ipfsResult.error || 'Failed to upload to IPFS');
+      }
+      
+      // Сохраняем CID для возможного открепления
+      metadataCid = ipfsResult.cid;
+      imageCid = ipfsResult.imageCid;
+      
+      // 2. Получаем signer для транзакций
       const signer = provider.getSigner();
       
-      // Создаем экземпляр контракта
+      // 3. Создаем экземпляр контракта
       const totemFactory = new ethers.Contract(
         TOTEM_FACTORY_ADDRESS,
         TOTEM_FACTORY_ABI,
         signer
       );
 
-      // Преобразуем IPFS хеш в байты для dataHash
-      const dataHash = ethers.utils.toUtf8Bytes(`ipfs://${ipfsHash}`);
+      // 4. Преобразуем IPFS хеш метаданных в байты для dataHash
+      const dataHash = ethers.utils.toUtf8Bytes(`ipfs://${metadataCid}`);
       
-      // Разбиваем строку с адресами коллабораторов на массив
+      // 5. Разбиваем строку с адресами коллабораторов на массив
       const collaboratorsArray = collaborators
         ? collaborators.split(',').map(addr => addr.trim()).filter(addr => ethers.utils.isAddress(addr))
         : [];
       
-      // Вызываем метод createTotem в смарт-контракте
-      const tx = await totemFactory.createTotem(
-        dataHash,
-        name,
-        symbol,
-        collaboratorsArray
-      );
+      // 6. Вызываем метод createTotem в смарт-контракте
+      try {
+        const tx = await totemFactory.createTotem(
+          dataHash,
+          name,
+          symbol,
+          collaboratorsArray
+        );
 
-      // Ждем подтверждения транзакции
-      const receipt = await tx.wait();
-      
-      // Получаем адрес созданного тотема из события
-      const totemCreatedEvent = receipt.events.find(event => event.name === 'TotemCreated');
-      const totemAddress = totemCreatedEvent.args.totemAddr;
-      
-      setSuccess(true);
-      setTxHash(receipt.transactionHash);
-      
-      // Сбрасываем форму
-      setFormData({
-        name: '',
-        symbol: '',
-        collaborators: '',
-        ipfsHash: ''
-      });
+        // Ждем подтверждения транзакции
+        const receipt = await tx.wait();
+        
+        // Получаем адрес созданного тотема из события
+        const totemCreatedEvent = receipt.events.find(event => event.name === 'TotemCreated');
+        const totemAddress = totemCreatedEvent.args.totemAddr;
+        
+        setSuccess(true);
+        setTxHash(receipt.transactionHash);
+        
+        // Сбрасываем форму
+        setFormData({
+          name: '',
+          symbol: '',
+          description: '',
+          collaborators: ''
+        });
+        setFile(null);
+        setFileName('');
+      } catch (txError) {
+        // Если транзакция отменена или не удалась, открепляем файлы с IPFS
+        console.log('Transaction failed or was rejected. Unpinning files from IPFS...');
+        
+        // Открепляем метаданные
+        if (metadataCid) {
+          await unpinFromIPFS(metadataCid);
+        }
+        
+        // Открепляем изображение
+        if (imageCid) {
+          await unpinFromIPFS(imageCid);
+        }
+        
+        throw txError; // Перебрасываем ошибку дальше
+      }
     } catch (err) {
       console.error('Error creating totem:', err);
       setError(err.message || 'Failed to create totem. Please try again.');
+      
+      // Если ошибка произошла до вызова транзакции, тоже открепляем файлы
+      if (metadataCid && !success) {
+        await unpinFromIPFS(metadataCid).catch(e => console.error('Error unpinning metadata:', e));
+      }
+      
+      if (imageCid && !success) {
+        await unpinFromIPFS(imageCid).catch(e => console.error('Error unpinning image:', e));
+      }
     } finally {
       setLoading(false);
     }
@@ -116,6 +176,17 @@ const TotemForm = ({ provider }) => {
         </Form.Field>
         
         <Form.Field>
+          <label>Description</label>
+          <Input
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Enter totem description"
+            fluid
+          />
+        </Form.Field>
+
+        <Form.Field>
           <label>Collaborators (optional, comma-separated addresses)</label>
           <Input
             name="collaborators"
@@ -126,7 +197,37 @@ const TotemForm = ({ provider }) => {
           />
         </Form.Field>
         
-        <FileUpload onFileUploaded={handleFileUploaded} />
+        <Form.Field>
+          <label>Upload Image</label>
+          <div
+            style={{
+              border: '2px dashed #ccc',
+              padding: '20px',
+              textAlign: 'center',
+              marginBottom: '20px',
+              cursor: 'pointer',
+              borderRadius: '5px',
+            }}
+            onClick={() => document.getElementById('file-input').click()}
+          >
+            <Icon name="file image outline" size="huge" />
+            <p>Drag and drop an image here or click to select</p>
+            <input
+              id="file-input"
+              type="file"
+              hidden
+              onChange={(e) => handleFileChange(e.target.files[0])}
+              accept="image/*"
+            />
+          </div>
+          {fileName && (
+            <Message info>
+              <p>
+                <Icon name="file" /> {fileName}
+              </p>
+            </Message>
+          )}
+        </Form.Field>
         
         {error && (
           <Message negative>
@@ -154,7 +255,7 @@ const TotemForm = ({ provider }) => {
         <Button
           primary
           onClick={createTotem}
-          disabled={loading || !formData.name || !formData.symbol || !formData.ipfsHash}
+          disabled={loading || !formData.name || !formData.symbol || !file}
           loading={loading}
         >
           <Icon name="magic" /> Create Totem

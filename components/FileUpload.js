@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Form, Button, Icon, Message } from 'semantic-ui-react';
-import { uploadFileToPinata } from '../utils/pinata';
+import { Button, Icon, Message } from 'semantic-ui-react';
+import { uploadTotemToIPFS } from '../utils/api';
 
-const FileUpload = ({ onFileUploaded }) => {
+const FileUpload = ({ onFileUploaded, metadata }) => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -39,29 +39,31 @@ const FileUpload = ({ onFileUploaded }) => {
       return;
     }
 
+    if (!metadata) {
+      setError('Metadata is required. Please fill in all required fields.');
+      return;
+    }
+
     setUploading(true);
     setError('');
     setSuccess(false);
 
     try {
-      // Получаем ключи Pinata из переменных окружения
-      const pinataApiKey = process.env.PINATA_API_KEY;
-      const pinataSecretApiKey = process.env.PINATA_API_SECRET;
-
-      // Загружаем файл на IPFS через Pinata
-      const result = await uploadFileToPinata(file, pinataApiKey, pinataSecretApiKey);
+      // Загружаем изображение и метаданные на IPFS
+      const result = await uploadTotemToIPFS(file, metadata);
 
       if (result.success) {
         setSuccess(true);
         
-        // Передаем IPFS хеш родительскому компоненту
-        onFileUploaded(result.IpfsHash);
+        // Передаем IPFS хеш метаданных родительскому компоненту
+        // Это значение будет использовано как _dataHash при создании тотема
+        onFileUploaded(result.cid, result.imageCid);
       } else {
-        throw new Error(result.error || 'Failed to upload file to IPFS');
+        throw new Error(result.error || 'Failed to upload totem to IPFS');
       }
     } catch (err) {
       console.error('Error uploading to IPFS:', err);
-      setError(err.message || 'Failed to upload file to IPFS. Please try again.');
+      setError(err.message || 'Failed to upload totem to IPFS. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -69,60 +71,58 @@ const FileUpload = ({ onFileUploaded }) => {
 
   return (
     <div>
-      <Form>
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          style={{
-            border: '2px dashed #ccc',
-            padding: '20px',
-            textAlign: 'center',
-            marginBottom: '20px',
-            cursor: 'pointer',
-            borderRadius: '5px',
-          }}
-          onClick={() => fileInputRef.current.click()}
-        >
-          <Icon name="file image outline" size="huge" />
-          <p>Drag and drop an image here or click to select</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            hidden
-            onChange={handleFileChange}
-            accept="image/*"
-          />
-        </div>
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        style={{
+          border: '2px dashed #ccc',
+          padding: '20px',
+          textAlign: 'center',
+          marginBottom: '20px',
+          cursor: 'pointer',
+          borderRadius: '5px',
+        }}
+        onClick={() => fileInputRef.current.click()}
+      >
+        <Icon name="file image outline" size="huge" />
+        <p>Drag and drop an image here or click to select</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          onChange={handleFileChange}
+          accept="image/*"
+        />
+      </div>
 
-        {fileName && (
-          <Message info>
-            <p>
-              <Icon name="file" /> {fileName}
-            </p>
-          </Message>
-        )}
+      {fileName && (
+        <Message info>
+          <p>
+            <Icon name="file" /> {fileName}
+          </p>
+        </Message>
+      )}
 
-        {error && (
-          <Message negative>
-            <p>{error}</p>
-          </Message>
-        )}
+      {error && (
+        <Message negative>
+          <p>{error}</p>
+        </Message>
+      )}
 
-        {success && (
-          <Message positive>
-            <p>File successfully uploaded to IPFS!</p>
-          </Message>
-        )}
+      {success && (
+        <Message positive>
+          <p>File successfully uploaded to IPFS!</p>
+        </Message>
+      )}
 
-        <Button
-          primary
-          loading={uploading}
-          disabled={!file || uploading}
-          onClick={uploadToPinata}
-        >
-          <Icon name="upload" /> Upload to IPFS
-        </Button>
-      </Form>
+      <Button
+        primary
+        loading={uploading}
+        disabled={!file || uploading}
+        onClick={uploadToPinata}
+      >
+        <Icon name="upload" /> Upload to IPFS
+      </Button>
     </div>
   );
 };

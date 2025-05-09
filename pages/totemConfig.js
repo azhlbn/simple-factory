@@ -1,5 +1,5 @@
 // Адреса контрактов для работы с тотемами
-export const TOTEM_FACTORY_ADDRESS = "0x1234567890123456789012345678901234567890"; // Замените на реальный адрес
+export const TOTEM_FACTORY_ADDRESS = "0xdEA87AA6Dc228865F6F8219c7fa739CE0587dcC5"; 
 
 // ABI для TotemFactory контракта
 export const TOTEM_FACTORY_ABI = [
@@ -465,4 +465,4 @@ export const TOTEM_TOKEN_ABI = [
 ];
 
 // Конфигурация для The Graph
-export const GRAPH_API_URL = "https://api.thegraph.com/subgraphs/name/yourusername/totem-factory";
+export const GRAPH_API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://api.studio.thegraph.com/query/101656/mytho-minato/version/latest";
