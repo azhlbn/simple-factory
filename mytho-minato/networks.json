@@ -1,0 +1,8 @@
+{
+  "soneium-testnet": {
+    "TotemFactory": {
+      "address": "0xdEA87AA6Dc228865F6F8219c7fa739CE0587dcC5",
+      "startBlock": 11754795
+    }
+  }
+}
