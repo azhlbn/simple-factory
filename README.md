@@ -1,2 +1,1 @@
 # simple-factory
-# simple-factory
