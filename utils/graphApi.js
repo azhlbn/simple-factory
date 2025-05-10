@@ -54,8 +54,11 @@ const fetchWithRetry = async (url, options, retries = 3) => {
 
 export const fetchAllTotems = async (first = 10, skip = 0, network = 'minato') => {
   try {
-    // Используем локальный прокси-сервер для обхода ограничений CORS
-    const graphApiUrl = '/api/graph-proxy';
+    // Используем URL из переменных окружения
+    const graphApiUrl = process.env.NEXT_PUBLIC_GRAPH_API_URL;
+    if (!graphApiUrl) {
+      throw new Error('Graph API URL not configured in environment variables');
+    }
     
     // Проверяем, что используется правильная сеть
     if (network !== 'minato') {

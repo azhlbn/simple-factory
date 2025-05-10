@@ -48,11 +48,14 @@ const TotemList = ({ provider }) => {
               }
               let metadata = null;
               if (dataHashString) {
-                const url = formatIpfsUrl(`ipfs://${dataHashString}`);
                 try {
+                  // Убираем ipfs:// префикс, если он есть
+                  const cleanHash = dataHashString.replace('ipfs://', '');
+                  const url = `https://gateway.pinata.cloud/ipfs/${cleanHash}`;
                   const resp = await axios.get(url);
                   metadata = resp.data;
                 } catch (e) {
+                  console.error(`Error fetching metadata:`, e.message);
                   metadata = null;
                 }
               }

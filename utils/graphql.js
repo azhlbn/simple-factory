@@ -33,12 +33,20 @@ export const GET_TOTEM_BY_ID = gql`
 
 /**
  * @typedef {Object} TotemData
- * @property {string} id
- * @property {string} totemAddr
- * @property {string} totemTokenAddr
- * @property {string} totemId
- * @property {string} blockTimestamp
- * @property {object} [metadata]
+ * @property {string} id - Уникальный идентификатор тотема
+ * @property {string} totemAddr - Адрес контракта тотема
+ * @property {string} totemTokenAddr - Адрес токена тотема
+ * @property {string} totemId - ID тотема
+ * @property {string} blockTimestamp - Временная метка блока
+ * @property {Object} [metadata] - Метаданные тотема
+ * @property {string} [metadata.name] - Название тотема
+ * @property {string} [metadata.description] - Описание тотема
+ * @property {string} [metadata.image] - IPFS URL изображения тотема
+ * @property {Object} [metadata.social_links] - Социальные ссылки
+ * @property {string} [metadata.social_links.twitter] - Ссылка на Twitter
+ * @property {string} [metadata.social_links.discord] - Ссылка на Discord
+ * @property {string} [metadata.social_links.website] - Ссылка на веб-сайт
+ * @property {string[]} [metadata.categories] - Категории тотема
  */
 
 // Функция для форматирования URL IPFS
