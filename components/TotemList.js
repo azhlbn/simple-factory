@@ -1,15 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { ethers } from 'ethers';
-import { GET_ALL_TOTEMS, formatIpfsUrl } from '../utils/graphql';
-import { TOTEM_FACTORY_ADDRESS, TOTEM_FACTORY_ABI } from '../config/totem';
+import { GET_ALL_TOTEMS } from '../utils/graphql';
+import { TOTEM_FACTORY_ADDRESS } from '../config/totem';
 import axios from 'axios';
-import { Card, Image, Loader, Message, Segment, Modal, Button } from 'semantic-ui-react';
+import {
+  Box,
+  Grid,
+  Text,
+  Image,
+  Flex,
+  Spinner,
+  Alert,
+  AlertIcon,
+  useColorModeValue,
+  Container,
+  Heading,
+  Stack,
+  AspectRatio,
+  Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  HStack,
+  Badge,
+  Link,
+  Icon,
+  Divider,
+} from '@chakra-ui/react';
+import { ExternalLinkIcon } from '@chakra-ui/icons';
+import { FaExternalLinkAlt } from 'react-icons/fa';
 
 const TotemList = ({ provider }) => {
   const [totems, setTotems] = useState([]);
   const [selectedTotem, setSelectedTotem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [expandedTotem, setExpandedTotem] = useState(null);
 
   // Получаем список тотемов из The Graph через Apollo
   const { data, loading: graphLoading, error: graphError } = useQuery(GET_ALL_TOTEMS, {
@@ -71,7 +100,6 @@ const TotemList = ({ provider }) => {
         );
         if (!cancelled) setTotems(enriched);
       } catch (err) {
-        setError('Failed to load totem metadata');
         console.error('Error loading totem metadata:', err);
       }
     };
@@ -79,131 +107,275 @@ const TotemList = ({ provider }) => {
     return () => { cancelled = true; };
   }, [data, graphLoading, provider]);
 
-  // UI Section Title
-  const SectionTitle = (
-    <div style={{margin: '2rem 0 1.5rem 0', textAlign: 'center'}}>
-      <h2 style={{fontWeight: 700, fontSize: '1.5rem', color: '#444'}}>Recent Totems</h2>
-    </div>
-  );
-
-  if (!provider) {
-    return (
-      <Segment basic textAlign="center">
-        {SectionTitle}
-        <Message warning>
-          <Message.Header>Connect your wallet to view recent totems</Message.Header>
-        </Message>
-      </Segment>
-    );
-  }
-
-  if (graphLoading || !data) {
-    return (
-      <Segment basic textAlign="center">
-        {SectionTitle}
-        <Loader active inline="centered" size="large" content="Loading Totems..." />
-      </Segment>
-    );
-  }
-
-  if (graphError) {
-    return (
-      <Segment basic textAlign="center">
-        {SectionTitle}
-        <Message negative>
-          <Message.Header>Error loading totems</Message.Header>
-          <p>Error loading totems: {graphError.message}</p>
-        </Message>
-      </Segment>
-    );
-  }
-
-  if (!totems.length) {
-    return (
-      <Segment basic textAlign="center">
-        {SectionTitle}
-        <Message info>
-          <Message.Header>No totems found</Message.Header>
-          <p>Be the first to create a totem!</p>
-        </Message>
-      </Segment>
-    );
-  }
+  const cardBg = useColorModeValue('gray.800', 'gray.800');
+  const cardBorderColor = useColorModeValue('whiteAlpha.100', 'whiteAlpha.100');
+  const cardHoverBg = useColorModeValue('gray.700', 'gray.700');
+  const textColor = useColorModeValue('white', 'white');
+  const subTextColor = useColorModeValue('gray.400', 'gray.400');
 
   return (
-    <>
-      {SectionTitle}
-      <Modal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setSelectedTotem(null);
-        }}
-      >
-        <Modal.Header>
-          {selectedTotem?.metadata?.name || `Totem #${selectedTotem?.totemId}`}
-        </Modal.Header>
-        <Modal.Content>
-          {selectedTotem?.metadata?.image && (
-            <Image
-              src={formatIpfsUrl(selectedTotem.metadata.image)}
-              wrapped
-              ui={false}
-              alt={selectedTotem.metadata?.name || 'Totem'}
-            />
-          )}
-          <Modal.Description style={{ marginTop: '1rem' }}>
-            <p><strong>Description:</strong> {selectedTotem?.metadata?.description || 'No description available'}</p>
-            <p><strong>Totem ID:</strong> {selectedTotem?.totemId}</p>
-            <p><strong>Totem Address:</strong> {selectedTotem?.totemAddr}</p>
-            <p><strong>Token Address:</strong> {selectedTotem?.totemTokenAddr}</p>
-            <p><strong>Created:</strong> {selectedTotem?.blockTimestamp ? new Date(parseInt(selectedTotem.blockTimestamp) * 1000).toLocaleString() : 'Unknown'}</p>
-          </Modal.Description>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button color='green' onClick={() => setModalOpen(false)}>
-            Close
-          </Button>
-        </Modal.Actions>
-      </Modal>
-      <Card.Group itemsPerRow={4} doubling stackable>
-        {totems.map((totem) => (
-          <Card key={totem.id}>
-            {totem.metadata?.image ? (
-              <Image src={formatIpfsUrl(totem.metadata.image)} wrapped ui={false} alt={totem.metadata?.name || 'Totem'} />
-            ) : (
-              <Segment placeholder>
-                <div style={{ color: '#888', marginTop: 8, textAlign: 'center' }}>No Image</div>
-              </Segment>
-            )}
-            <Card.Content>
-              <Card.Header>{totem.metadata?.name || `Totem #${totem.totemId}`}</Card.Header>
-              <Card.Meta>ID: {totem.totemId}</Card.Meta>
-              <Card.Description>
-                {totem.metadata?.description ? (
-                  <span>{totem.metadata.description}</span>
-                ) : (
-                  <span style={{ color: '#888', fontStyle: 'italic' }}>No description</span>
-                )}
-              </Card.Description>
-            </Card.Content>
-            <Card.Content extra>
-              <Button
-                fluid
-                basic
-                color='green'
-                onClick={() => {
-                  setSelectedTotem(totem);
-                  setModalOpen(true);
-                }}
+    <Container maxW="7xl" py={10}>
+      <Box>
+        
+        <Grid
+          templateColumns={{
+            base: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          }}
+          gap={6}
+        >
+          {totems.map((totem) => (
+            <Box
+              key={totem.id}
+              position="relative"
+              bg={cardBg}
+              borderRadius="2xl"
+              overflow="hidden"
+              border="1px solid"
+              borderColor={cardBorderColor}
+              transition="all 0.3s"
+              _before={{
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                zIndex: -1,
+                margin: '-1px',
+                borderRadius: 'inherit',
+                background: 'linear-gradient(45deg, rgba(74, 222, 128, 0.1), rgba(74, 222, 128, 0))',
+              }}
+              _hover={{
+                transform: 'translateY(-4px)',
+                bg: cardHoverBg,
+                boxShadow: '0 4px 20px rgba(74, 222, 128, 0.2)',
+                borderColor: 'brand.primary',
+                _before: {
+                  background: 'linear-gradient(45deg, rgba(74, 222, 128, 0.2), rgba(74, 222, 128, 0))',
+                }
+              }}
+            >
+              <AspectRatio ratio={1}>
+                <Box bg="gray.900" position="relative">
+                  {totem.metadata?.image ? (
+                    <>
+                      <Image
+                        src={`https://gateway.pinata.cloud/ipfs/${totem.metadata.image.replace('ipfs://', '')}`}
+                        alt={totem.metadata?.name || 'Totem'}
+                        objectFit="cover"
+                        w="100%"
+                        h="100%"
+                        filter="brightness(0.9)"
+                      />
+                      <Box
+                        position="absolute"
+                        top={0}
+                        left={0}
+                        right={0}
+                        bottom={0}
+                        bgGradient="linear(to-t, rgba(17, 24, 39, 1), rgba(17, 24, 39, 0))"
+                      />
+                    </>
+                  ) : (
+                    <Flex
+                      align="center"
+                      justify="center"
+                      h="100%"
+                      color="gray.500"
+                      fontSize="sm"
+                      bgGradient="linear(to-br, gray.800, gray.900)"
+                    >
+                      No Image
+                    </Flex>
+                  )}
+                </Box>
+              </AspectRatio>
+
+              <Stack p={4} spacing={3}>
+                <Heading
+                  as="h3"
+                  size="sm"
+                  color={textColor}
+                  noOfLines={1}
+                  fontWeight="bold"
+                  letterSpacing="tight"
+                >
+                  {totem.metadata?.name || `Totem #${totem.totemId}`}
+                </Heading>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  height="32px"
+                  px={3}
+                  onClick={() => {
+                    setSelectedTotem(totem);
+                    setModalOpen(true);
+                  }}
+                  fontWeight="medium"
+                  letterSpacing="wide"
+                  rightIcon={<ExternalLinkIcon />}
+                  position="relative"
+                  borderWidth="1px"
+                  borderStyle="solid"
+                  borderColor="brand.primary"
+                  bg="rgba(16, 185, 129, 0.05)"
+                  _before={{
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    zIndex: -1,
+                    margin: '-2px',
+                    borderRadius: 'inherit',
+                    bgGradient: 'linear(to-r, brand.primary, brand.accent)',
+                    opacity: 0.5
+                  }}
+                  _hover={{
+                    bg: "rgba(16, 185, 129, 0.1)",
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 0 15px rgba(16, 185, 129, 0.2)",
+                  }}
+                >
+                  View Details
+                </Button>
+              </Stack>
+            </Box>
+          ))}
+        </Grid>
+      </Box>
+
+      {/* Modal for displaying totem details */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} isCentered>
+        <ModalOverlay backdropFilter="blur(12px)" bg="rgba(11, 14, 26, 0.7)" />
+        <ModalContent
+          bg="rgba(17, 24, 39, 0.9)"
+          border="1px solid"
+          borderColor="brand.primary"
+          borderRadius="xl"
+          mx={4}
+          boxShadow="0 0 30px rgba(16, 185, 129, 0.2)"
+          width="350px"
+          maxW="350px"
+        >
+          {selectedTotem && (
+            <>
+              <ModalHeader 
+                color="white" 
+                borderBottom="1px solid" 
+                borderColor="whiteAlpha.100"
+                bgGradient="linear(to-r, rgba(16, 185, 129, 0.1), transparent)"
               >
-                View Details
-              </Button>
-            </Card.Content>
-          </Card>
-        ))}
-      </Card.Group>
-    </>
+                <Text 
+                  bgGradient="linear(to-r, brand.primary, brand.accent)" 
+                  bgClip="text"
+                  fontWeight="bold"
+                >
+                  {selectedTotem.metadata?.name || `Totem #${selectedTotem.totemId}`}
+                </Text>
+              </ModalHeader>
+              <ModalCloseButton color="white" />
+              <ModalBody py={6}>
+                <Stack spacing={6}>
+                  {selectedTotem.metadata?.image && (
+                    <Flex justify="center" w="100%">
+                      <Box
+                        borderRadius="xl"
+                        overflow="hidden"
+                        position="relative"
+                        width="200px"
+                        height="200px"
+                        border="1px solid"
+                        borderColor="whiteAlpha.200"
+                      >
+                        <Image
+                          src={`https://gateway.pinata.cloud/ipfs/${selectedTotem.metadata.image.replace('ipfs://', '')}`}
+                          alt={selectedTotem.metadata?.name || 'Totem'}
+                          objectFit="cover"
+                          w="100%"
+                          h="100%"
+                        />
+                      </Box>
+                    </Flex>
+                  )}
+                  
+                  <Box>
+                    <Heading size="sm" color="gray.300" mb={2}>ID</Heading>
+                    <Text color="white" fontWeight="medium">
+                      {selectedTotem.totemId}
+                    </Text>
+                  </Box>
+                  
+                  <Box>
+                    <Heading size="sm" color="gray.300" mb={2}>Description</Heading>
+                    <Text color="gray.100">
+                      {selectedTotem.metadata?.description || 'No description available'}
+                    </Text>
+                  </Box>
+                  
+                  <Box>
+                    <Heading size="sm" color="gray.300" mb={2}>Totem Address</Heading>
+                    <HStack>
+                      <Text color="gray.100" fontFamily="mono" fontSize="sm">
+                        {selectedTotem.totemAddr}
+                      </Text>
+                      <Link 
+                        href={`https://soneium-minato.blockscout.com/address/${selectedTotem.totemAddr}`}
+                        isExternal
+                        color="brand.primary"
+                      >
+                        <Icon as={FaExternalLinkAlt} boxSize={3} />
+                      </Link>
+                    </HStack>
+                  </Box>
+                  
+                  {selectedTotem.metadata?.attributes && selectedTotem.metadata.attributes.length > 0 && (
+                    <Box>
+                      <Heading size="sm" color="gray.300" mb={3}>Attributes</Heading>
+                      <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                        {selectedTotem.metadata.attributes.map((attr, idx) => (
+                          <Box 
+                            key={idx}
+                            bg="whiteAlpha.100"
+                            p={3}
+                            borderRadius="lg"
+                          >
+                            <Text color="gray.400" fontSize="xs" fontWeight="bold" mb={1}>
+                              {attr.trait_type}
+                            </Text>
+                            <Text color="white">{attr.value}</Text>
+                          </Box>
+                        ))}
+                      </Grid>
+                    </Box>
+                  )}
+                  
+                  <HStack spacing={4} pt={2}>
+                    <Button
+                      as="a"
+                      href={`https://soneium-minato.blockscout.com/address/${selectedTotem.totemAddr}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Icon as={FaExternalLinkAlt} />}
+                      flex={1}
+                    >
+                      View on Blockscout
+                    </Button>
+                  </HStack>
+                </Stack>
+              </ModalBody>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </Container>
   );
 };
 

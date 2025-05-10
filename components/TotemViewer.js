@@ -1,6 +1,31 @@
 import React, { useState } from 'react';
-import { Form, Button, Input, Card, Image, Segment, Message, Icon, Loader, List } from 'semantic-ui-react';
 import { ethers } from 'ethers';
+import {
+  Box,
+  Button,
+  Input,
+  Image,
+  Text,
+  VStack,
+  HStack,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  Heading,
+  Link,
+  Icon,
+  useColorModeValue,
+  InputGroup,
+  InputRightElement,
+  Badge,
+  SimpleGrid,
+  Spinner,
+  List,
+  ListItem,
+  ListIcon
+} from '@chakra-ui/react';
+import { FaUser, FaExternalLinkAlt, FaFile, FaSearch } from 'react-icons/fa';
 import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../config/totem';
 
 const TotemViewer = ({ provider }) => {
@@ -87,133 +112,194 @@ const TotemViewer = ({ provider }) => {
     }
   };
 
+  const cardBg = useColorModeValue('gray.800', 'gray.800');
+  const borderColor = useColorModeValue('whiteAlpha.200', 'whiteAlpha.200');
+  const badgeBg = useColorModeValue('whiteAlpha.200', 'whiteAlpha.200');
+
   return (
-    <Segment>
-      <Form>
-        <Form.Field>
-          <label>Enter Totem Address</label>
+    <VStack spacing={6} width="100%">
+      <Box width="100%">
+        <InputGroup size="lg">
           <Input
             value={totemAddress}
-            onChange={handleInputChange}
-            placeholder="0x..."
-            action={
-              <Button 
-                primary 
-                onClick={fetchTotemData} 
-                disabled={loading || !totemAddress}
-                loading={loading}
-              >
-                View Totem
-              </Button>
-            }
-            fluid
+            onChange={(e) => handleInputChange(e)}
+            placeholder="Enter totem address (0x...)"
+            bg="whiteAlpha.50"
+            border="1px solid"
+            borderColor="whiteAlpha.200"
+            _hover={{ borderColor: 'brand.primary' }}
+            _focus={{ borderColor: 'brand.primary', boxShadow: 'none' }}
+            height="56px"
+            fontSize="lg"
           />
-        </Form.Field>
-      </Form>
+          <InputRightElement width="auto" pr={1}>
+            <Button
+              leftIcon={<Icon as={FaSearch} />}
+              onClick={fetchTotemData}
+              isDisabled={loading || !totemAddress}
+              isLoading={loading}
+              variant="primary"
+              size="md"
+              height="48px"
+              mr={1}
+            >
+              View Totem
+            </Button>
+          </InputRightElement>
+        </InputGroup>
+      </Box>
 
       {error && (
-        <Message negative>
-          <Message.Header>Error</Message.Header>
-          <p>{error}</p>
-        </Message>
+        <Alert status="error" borderRadius="xl" variant="left-accent">
+          <AlertIcon />
+          <Box>
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Box>
+        </Alert>
       )}
 
       {loading && (
-        <Segment basic textAlign="center">
-          <Loader active>Loading Totem Data...</Loader>
-        </Segment>
+        <Box py={10} textAlign="center">
+          <Spinner size="xl" color="brand.primary" thickness="4px" />
+          <Text mt={4} color="gray.400">Loading Totem Data...</Text>
+        </Box>
       )}
 
       {totemData && (
-        <Card fluid>
-          <Card.Content>
-            <Card.Header>{totemData.name} ({totemData.symbol})</Card.Header>
-            <Card.Meta>
-              <span>Token Address: {totemData.tokenAddress.substring(0, 8)}...{totemData.tokenAddress.substring(totemData.tokenAddress.length - 6)}</span>
-            </Card.Meta>
-          </Card.Content>
-          
-          {totemData.imageUrl && (
-            <Image src={totemData.imageUrl} wrapped ui={false} />
-          )}
-          
-          <Card.Content>
-            <Card.Description>
-              <h4>Description:</h4>
-              <p>{totemData.metadata.description || 'No description available'}</p>
-              
-              <h4>Collaborators:</h4>
-              {totemData.collaborators.length > 0 ? (
-                <List>
-                  {totemData.collaborators.map((address, index) => (
-                    <List.Item key={index}>
-                      <Icon name="user" />
-                      <List.Content>
-                        <a 
-                          href={`https://etherscan.io/address/${address}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+        <Box
+          width="100%"
+          bg={cardBg}
+          borderRadius="2xl"
+          border="1px solid"
+          borderColor={borderColor}
+          overflow="hidden"
+          position="relative"
+          _before={{
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            zIndex: -1,
+            margin: '-1px',
+            borderRadius: 'inherit',
+            background: 'linear-gradient(45deg, rgba(74, 222, 128, 0.1), rgba(74, 222, 128, 0))',
+          }}
+        >
+          <VStack spacing={6} p={8}>
+            <VStack spacing={2} width="100%" align="start">
+              <Heading size="lg" color="white">
+                {totemData.name} <Badge ml={2} bg={badgeBg} color="gray.300">{totemData.symbol}</Badge>
+              </Heading>
+              <Text color="gray.400" fontSize="sm">
+                Token Address: {totemData.tokenAddress.substring(0, 8)}...{totemData.tokenAddress.substring(totemData.tokenAddress.length - 6)}
+              </Text>
+            </VStack>
+
+            {totemData.imageUrl && (
+              <Box
+                width="100%"
+                borderRadius="xl"
+                overflow="hidden"
+                position="relative"
+                aspectRatio={1}
+              >
+                <Image
+                  src={totemData.imageUrl}
+                  alt={totemData.name}
+                  objectFit="cover"
+                  width="100%"
+                  height="100%"
+                />
+              </Box>
+            )}
+
+            <VStack spacing={6} width="100%" align="start">
+              <Box>
+                <Heading size="md" color="gray.300" mb={2}>Description</Heading>
+                <Text color="gray.400">
+                  {totemData.metadata.description || 'No description available'}
+                </Text>
+              </Box>
+
+              <Box width="100%">
+                <Heading size="md" color="gray.300" mb={4}>Collaborators</Heading>
+                {totemData.collaborators.length > 0 ? (
+                  <List spacing={3}>
+                    {totemData.collaborators.map((address, index) => (
+                      <ListItem key={index} color="gray.400">
+                        <ListIcon as={FaUser} color="brand.primary" />
+                        <Link
+                          href={`https://soneium-minato.blockscout.com/address/${address}`}
+                          isExternal
+                          color="brand.primary"
                         >
                           {address.substring(0, 8)}...{address.substring(address.length - 6)}
-                        </a>
-                      </List.Content>
-                    </List.Item>
-                  ))}
-                </List>
-              ) : (
-                <p>No collaborators</p>
-              )}
-              
-              {totemData.metadata.attributes && (
-                <>
-                  <h4>Attributes:</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                    {totemData.metadata.attributes.map((attr, index) => (
-                      <div 
-                        key={index} 
-                        style={{ 
-                          background: '#f0f0f0', 
-                          padding: '5px 10px', 
-                          borderRadius: '5px',
-                          color: '#333'
-                        }}
-                      >
-                        <strong>{attr.trait_type}:</strong> {attr.value}
-                      </div>
+                        </Link>
+                      </ListItem>
                     ))}
-                  </div>
-                </>
+                  </List>
+                ) : (
+                  <Text color="gray.500">No collaborators</Text>
+                )}
+              </Box>
+
+              {totemData.metadata.attributes && (
+                <Box width="100%">
+                  <Heading size="md" color="gray.300" mb={4}>Attributes</Heading>
+                  <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4}>
+                    {totemData.metadata.attributes.map((attr, index) => (
+                      <Box
+                        key={index}
+                        bg="whiteAlpha.100"
+                        p={4}
+                        borderRadius="xl"
+                        border="1px solid"
+                        borderColor="whiteAlpha.200"
+                      >
+                        <Text color="gray.400" fontSize="sm" fontWeight="bold" mb={1}>
+                          {attr.trait_type}
+                        </Text>
+                        <Text color="white">{attr.value}</Text>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                </Box>
               )}
-            </Card.Description>
-          </Card.Content>
-          
-          <Card.Content extra>
-            <div className="ui two buttons">
-              <Button 
-                basic 
-                color="blue"
-                as="a"
-                href={`https://etherscan.io/address/${totemData.address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon name="external" /> View on Etherscan
-              </Button>
-              <Button 
-                basic 
-                color="green"
-                as="a"
-                href={`https://gateway.pinata.cloud/ipfs/${totemData.dataHash.replace('ipfs://', '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon name="file" /> View Metadata
-              </Button>
-            </div>
-          </Card.Content>
-        </Card>
+
+              <HStack spacing={4} width="100%">
+                <Button
+                  leftIcon={<Icon as={FaExternalLinkAlt} />}
+                  as="a"
+                  href={`https://soneium-minato.blockscout.com/address/${totemData.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="outline"
+                  size="md"
+                  flex={1}
+                >
+                  View on Blockscout
+                </Button>
+                <Button
+                  leftIcon={<Icon as={FaFile} />}
+                  as="a"
+                  href={`https://gateway.pinata.cloud/ipfs/${totemData.dataHash.replace('ipfs://', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="outline"
+                  size="md"
+                  flex={1}
+                >
+                  View Metadata
+                </Button>
+              </HStack>
+            </VStack>
+          </VStack>
+        </Box>
       )}
-    </Segment>
+    </VStack>
   );
 };
 

@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Icon, Message, Segment, Loader, Button } from 'semantic-ui-react';
 import { useQuery, gql } from '@apollo/client';
 import { ethers } from 'ethers';
+import {
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Box,
+  Link,
+  Button,
+  Icon,
+  Text,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  Spinner,
+  useColorModeValue
+} from '@chakra-ui/react';
+import { FaPlus, FaExternalLinkAlt } from 'react-icons/fa';
 
 // GraphQL запрос для получения списка токенов
 const GET_TOKEN_ADDRESSES = gql`
@@ -97,86 +116,114 @@ const TokenAddressList = ({ provider }) => {
     }
   };
 
+  const tableBg = useColorModeValue('whiteAlpha.50', 'whiteAlpha.50');
+  const headerBg = useColorModeValue('whiteAlpha.100', 'whiteAlpha.100');
+  const borderColor = useColorModeValue('whiteAlpha.200', 'whiteAlpha.200');
+  const hoverBg = useColorModeValue('whiteAlpha.100', 'whiteAlpha.100');
+
   if (loading) {
     return (
-      <Segment>
-        <Loader active>Loading Token Addresses...</Loader>
-      </Segment>
+      <Box textAlign="center" py={10}>
+        <Spinner size="xl" color="brand.primary" thickness="4px" />
+        <Text mt={4} color="gray.400">Loading Token Addresses...</Text>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Message negative>
-        <Message.Header>Error Loading Token Addresses</Message.Header>
-        <p>{error.message}</p>
-      </Message>
+      <Alert status="error" borderRadius="xl" variant="left-accent">
+        <AlertIcon />
+        <Box>
+          <AlertTitle>Error Loading Token Addresses</AlertTitle>
+          <AlertDescription>{error.message}</AlertDescription>
+        </Box>
+      </Alert>
     );
   }
 
   if (!data || !data.totemCreateds || data.totemCreateds.length === 0) {
     return (
-      <Message info>
-        <Message.Header>No Tokens Found</Message.Header>
-        <p>No totem tokens have been created yet.</p>
-      </Message>
+      <Alert status="info" borderRadius="xl" variant="left-accent">
+        <AlertIcon />
+        <Box>
+          <AlertTitle>No Tokens Found</AlertTitle>
+          <AlertDescription>No totem tokens have been created yet.</AlertDescription>
+        </Box>
+      </Alert>
     );
   }
 
   return (
-    <Segment>
-      <Table celled>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>Totem ID</Table.HeaderCell>
-            <Table.HeaderCell>Token Address</Table.HeaderCell>
-            <Table.HeaderCell>Creator</Table.HeaderCell>
-            <Table.HeaderCell>Actions</Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
+    <Box
+      overflowX="auto"
+      bg={tableBg}
+      borderRadius="2xl"
+      border="1px solid"
+      borderColor={borderColor}
+    >
+      <Table variant="unstyled">
+        <Thead>
+          <Tr bg={headerBg}>
+            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Totem ID</Th>
+            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Token Address</Th>
+            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Creator</Th>
+            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Actions</Th>
+          </Tr>
+        </Thead>
 
-        <Table.Body>
+        <Tbody>
           {data.totemCreateds.map((item) => {
             const tokenInfo = tokenNames[item.totemTokenAddr] || { name: 'Loading...', symbol: '...' };
             return (
-            <Table.Row key={item.id}>
-              <Table.Cell>{item.totemId}</Table.Cell>
-              <Table.Cell>
-                <a
-                  href={`https://etherscan.io/address/${item.totemTokenAddr}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {tokenInfo.name} ({tokenInfo.symbol})
-                </a>
-                <div style={{ fontSize: '0.8em', color: '#888' }}>
-                  {item.totemTokenAddr.substring(0, 8)}...{item.totemTokenAddr.substring(item.totemTokenAddr.length - 6)}
-                </div>
-              </Table.Cell>
-              <Table.Cell>
-                <a
-                  href={`https://etherscan.io/address/${item.totemAddr}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {item.totemAddr.substring(0, 8)}...{item.totemAddr.substring(item.totemAddr.length - 6)}
-                </a>
-              </Table.Cell>
-              <Table.Cell>
-                <Button
-                  size="tiny"
-                  color="orange"
-                  onClick={() => addTokenToMetaMask(item.totemTokenAddr, tokenInfo.symbol)}
-                >
-                  <Icon name="plus" /> Add to MetaMask
-                </Button>
-              </Table.Cell>
-            </Table.Row>
+              <Tr
+                key={item.id}
+                _hover={{ bg: hoverBg }}
+                transition="background-color 0.2s"
+              >
+                <Td color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>
+                  {item.totemId}
+                </Td>
+                <Td py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>
+                  <Link
+                    href={`https://soneium-minato.blockscout.com/address/${item.totemTokenAddr}`}
+                    isExternal
+                    color="brand.primary"
+                    display="block"
+                    mb={1}
+                  >
+                    {tokenInfo.name} ({tokenInfo.symbol}) <Icon as={FaExternalLinkAlt} boxSize={3} mx={1} />
+                  </Link>
+                  <Text fontSize="sm" color="gray.500">
+                    {item.totemTokenAddr.substring(0, 8)}...{item.totemTokenAddr.substring(item.totemTokenAddr.length - 6)}
+                  </Text>
+                </Td>
+                <Td py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>
+                  <Link
+                    href={`https://soneium-minato.blockscout.com/address/${item.totemAddr}`}
+                    isExternal
+                    color="brand.primary"
+                  >
+                    {item.totemAddr.substring(0, 8)}...{item.totemAddr.substring(item.totemAddr.length - 6)}
+                    <Icon as={FaExternalLinkAlt} boxSize={3} mx={1} />
+                  </Link>
+                </Td>
+                <Td py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>
+                  <Button
+                    leftIcon={<Icon as={FaPlus} />}
+                    onClick={() => addTokenToMetaMask(item.totemTokenAddr, tokenInfo.symbol)}
+                    variant="primary"
+                    size="sm"
+                  >
+                    Add to MetaMask
+                  </Button>
+                </Td>
+              </Tr>
             );
           })}
-        </Table.Body>
+        </Tbody>
       </Table>
-    </Segment>
+    </Box>
   );
 };
 
