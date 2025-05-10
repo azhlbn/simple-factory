@@ -1,218 +1,206 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Image, Button, Icon, Loader, Message, Segment } from 'semantic-ui-react';
+import { useQuery } from '@apollo/client';
 import { ethers } from 'ethers';
-import { TOTEM_ABI, TOTEM_TOKEN_ABI } from '../config/totem';
-import { fetchTotemsWithMetadata } from '../utils/graphApi';
+import { GET_ALL_TOTEMS, formatIpfsUrl } from '../utils/graphql';
+import { TOTEM_FACTORY_ADDRESS, TOTEM_FACTORY_ABI } from '../config/totem';
+import axios from 'axios';
+import { Card, Image, Loader, Message, Segment, Modal, Button } from 'semantic-ui-react';
 
 const TotemList = ({ provider }) => {
   const [totems, setTotems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [selectedTotem, setSelectedTotem] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  // Состояние для отслеживания загрузки данных из The Graph
-  const [queryLoading, setQueryLoading] = useState(true);
-  const [queryError, setQueryError] = useState(null);
+  // Получаем список тотемов из The Graph через Apollo
+  const { data, loading: graphLoading, error: graphError } = useQuery(GET_ALL_TOTEMS, {
+    variables: { first: 10, skip: 0 },
+    skip: !provider,
+    fetchPolicy: 'network-only', // Всегда получаем свежие данные с сервера
+  });
 
-  // Получение метаданных тотема с IPFS
-  const fetchTotemMetadata = async (totemAddress, tokenAddress) => {
-    try {
-      // Получаем данные тотема
-      const totemContract = new ethers.Contract(
-        totemAddress,
-        TOTEM_ABI,
-        provider
-      );
-      
-      // Получаем данные токена
-      const tokenContract = new ethers.Contract(
-        tokenAddress,
-        TOTEM_TOKEN_ABI,
-        provider
-      );
-      
-      // Получаем dataHash и информацию о токене
-      const [dataHashBytes, name, symbol] = await Promise.all([
-        totemContract.dataHash(),
-        tokenContract.name(),
-        tokenContract.symbol()
-      ]);
-      
-      // Преобразуем байты в строку
-      const dataHashString = ethers.utils.toUtf8String(dataHashBytes);
-      
-      // Преобразуем IPFS URI в HTTP URL для запроса
-      const ipfsHash = dataHashString.replace('ipfs://', '');
-      const url = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
-      
-      // Получаем метаданные
-      const response = await fetch(url);
-      const metadata = await response.json();
-      
-      return {
-        metadata,
-        name,
-        symbol
-      };
-    } catch (err) {
-      console.error('Error fetching totem metadata:', err);
-      return {
-        metadata: null,
-        name: 'Unknown',
-        symbol: 'UNK'
-      };
-    }
-  };
-
-  // Загрузка данных о тотемах
   useEffect(() => {
-    const loadTotemData = async () => {      
-      setQueryLoading(true);
-      setLoading(true);
-      setError('');
-      
+    if (!provider || !data?.totemCreateds || graphLoading) return;
+    let cancelled = false;
+
+    const fetchMetadata = async () => {
       try {
-        // Получаем тотемы с метаданными с помощью новой функции
-        const totemsData = await fetchTotemsWithMetadata();
-        
-        // Если нет данных, просто устанавливаем пустой массив и завершаем загрузку
-        if (!totemsData || totemsData.length === 0) {
-          setTotems([]);
-          setQueryLoading(false);
-          setLoading(false);
-          return;
-        }
-        
-        // Дополняем данные информацией о токенах
-        const enhancedTotems = await Promise.all(
-          totemsData.map(async (totem) => {
+        const factory = new ethers.Contract(
+          TOTEM_FACTORY_ADDRESS,
+          [
+            'function totemDataByAddress(address) view returns (address creator, address totemTokenAddr, bytes dataHash)'
+          ],
+          provider
+        );
+
+        const enriched = await Promise.all(
+          data.totemCreateds.map(async (totem) => {
             try {
-              // Получаем данные токена
-              const tokenContract = new ethers.Contract(
-                totem.tokenAddress,
-                TOTEM_TOKEN_ABI,
-                provider
-              );
-              
-              // Получаем имя и символ токена
-              const [name, symbol] = await Promise.all([
-                tokenContract.name(),
-                tokenContract.symbol()
-              ]);
-              
-              // Формируем URL изображения
-              const imageUrl = totem.metadata && totem.metadata.image 
-                ? `https://gateway.pinata.cloud/ipfs/${totem.metadata.image.replace('ipfs://', '')}` 
-                : null;
-              
+              // Получаем dataHash из контракта
+              const totemData = await factory.totemDataByAddress(totem.totemAddr);
+              let dataHashString = '';
+              if (totemData && totemData.dataHash) {
+                try {
+                  dataHashString = ethers.utils.toUtf8String(totemData.dataHash);
+                } catch (e) {
+                  // Иногда dataHash уже строка
+                  dataHashString = totemData.dataHash;
+                }
+              }
+              let metadata = null;
+              if (dataHashString) {
+                const url = formatIpfsUrl(`ipfs://${dataHashString}`);
+                try {
+                  const resp = await axios.get(url);
+                  metadata = resp.data;
+                } catch (e) {
+                  metadata = null;
+                }
+              }
               return {
-                id: totem.id,
-                totemAddr: totem.totemAddress,
-                totemTokenAddr: totem.tokenAddress,
-                metadata: totem.metadata,
-                name,
-                symbol,
-                imageUrl,
-                description: totem.metadata ? totem.metadata.description : '',
-                createdAt: new Date(parseInt(totem.createdAt) * 1000).toLocaleDateString()
+                ...totem,
+                metadata
               };
             } catch (err) {
-              console.error(`Error enhancing totem ${totem.id}:`, err);
-              return {
-                id: totem.id,
-                totemAddr: totem.totemAddress,
-                totemTokenAddr: totem.tokenAddress,
-                metadata: totem.metadata,
-                name: 'Unknown',
-                symbol: 'UNK',
-                imageUrl: null,
-                description: totem.metadata ? totem.metadata.description : '',
-                createdAt: new Date(parseInt(totem.createdAt) * 1000).toLocaleDateString()
-              };
+              console.error(`Error fetching metadata for totem ${totem.totemAddr}:`, err);
+              return totem;
             }
           })
         );
-        
-        setTotems(enhancedTotems);
-        setQueryLoading(false);
+        if (!cancelled) setTotems(enriched);
       } catch (err) {
-        console.error('Error loading totem data:', err);
-        setError('Failed to load totem data. Please try again.');
-        setQueryError(err);
-        setQueryLoading(false);
-      } finally {
-        setLoading(false);
+        setError('Failed to load totem metadata');
+        console.error('Error loading totem metadata:', err);
       }
     };
-    
-    loadTotemData();
-  }, [provider]);
+    fetchMetadata();
+    return () => { cancelled = true; };
+  }, [data, graphLoading, provider]);
 
-  if (queryLoading || loading) {
+  // UI Section Title
+  const SectionTitle = (
+    <div style={{margin: '2rem 0 1.5rem 0', textAlign: 'center'}}>
+      <h2 style={{fontWeight: 700, fontSize: '1.5rem', color: '#444'}}>Recent Totems</h2>
+    </div>
+  );
+
+  if (!provider) {
     return (
-      <Segment>
-        <Loader active>Loading Totems...</Loader>
+      <Segment basic textAlign="center">
+        {SectionTitle}
+        <Message warning>
+          <Message.Header>Connect your wallet to view recent totems</Message.Header>
+        </Message>
       </Segment>
     );
   }
 
-  if (queryError || error) {
-    console.log('Error details:', queryError || error);
+  if (graphLoading || !data) {
     return (
-      <Message negative>
-        <Message.Header>Error Loading Totems</Message.Header>
-        <p>Could not load totems. The Graph API might not be configured properly.</p>
-        <Button onClick={() => window.location.reload()} primary>
-          <Icon name="refresh" /> Try Again
-        </Button>
-      </Message>
+      <Segment basic textAlign="center">
+        {SectionTitle}
+        <Loader active inline="centered" size="large" content="Loading Totems..." />
+      </Segment>
     );
   }
 
-  if (totems.length === 0) {
+  if (graphError) {
     return (
-      <Message info>
-        <Message.Header>No Totems Found</Message.Header>
-        <p>No totems have been created yet. Be the first to create a totem!</p>
-      </Message>
+      <Segment basic textAlign="center">
+        {SectionTitle}
+        <Message negative>
+          <Message.Header>Error loading totems</Message.Header>
+          <p>Error loading totems: {graphError.message}</p>
+        </Message>
+      </Segment>
+    );
+  }
+
+  if (!totems.length) {
+    return (
+      <Segment basic textAlign="center">
+        {SectionTitle}
+        <Message info>
+          <Message.Header>No totems found</Message.Header>
+          <p>Be the first to create a totem!</p>
+        </Message>
+      </Segment>
     );
   }
 
   return (
-    <Card.Group stackable itemsPerRow={3}>
-      {totems.map((totem) => (
-        <Card key={totem.id}>
-          {totem.imageUrl ? (
-            <Image src={totem.imageUrl} wrapped ui={false} />
-          ) : (
-            <div style={{ height: '200px', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="image" size="huge" color="grey" />
-            </div>
+    <>
+      {SectionTitle}
+      <Modal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedTotem(null);
+        }}
+      >
+        <Modal.Header>
+          {selectedTotem?.metadata?.name || `Totem #${selectedTotem?.totemId}`}
+        </Modal.Header>
+        <Modal.Content>
+          {selectedTotem?.metadata?.image && (
+            <Image
+              src={formatIpfsUrl(selectedTotem.metadata.image)}
+              wrapped
+              ui={false}
+              alt={selectedTotem.metadata?.name || 'Totem'}
+            />
           )}
-          <Card.Content>
-            <Card.Header>{totem.name}</Card.Header>
-            <Card.Meta>
-              <span>ID: {totem.totemId}</span>
-            </Card.Meta>
-            <Card.Description>
-              {totem.description || 'No description available'}
-            </Card.Description>
-          </Card.Content>
-          <Card.Content extra>
-            <Button 
-              basic 
-              color="blue" 
-              fluid
-              as="a"
-              href={`https://etherscan.io/address/${totem.totemAddr}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Icon name="external" /> View on Etherscan
-            </Button>
-          </Card.Content>
-        </Card>
-      ))}
-    </Card.Group>
+          <Modal.Description style={{ marginTop: '1rem' }}>
+            <p><strong>Description:</strong> {selectedTotem?.metadata?.description || 'No description available'}</p>
+            <p><strong>Totem ID:</strong> {selectedTotem?.totemId}</p>
+            <p><strong>Totem Address:</strong> {selectedTotem?.totemAddr}</p>
+            <p><strong>Token Address:</strong> {selectedTotem?.totemTokenAddr}</p>
+            <p><strong>Created:</strong> {selectedTotem?.blockTimestamp ? new Date(parseInt(selectedTotem.blockTimestamp) * 1000).toLocaleString() : 'Unknown'}</p>
+          </Modal.Description>
+        </Modal.Content>
+        <Modal.Actions>
+          <Button color='green' onClick={() => setModalOpen(false)}>
+            Close
+          </Button>
+        </Modal.Actions>
+      </Modal>
+      <Card.Group itemsPerRow={4} doubling stackable>
+        {totems.map((totem) => (
+          <Card key={totem.id}>
+            {totem.metadata?.image ? (
+              <Image src={formatIpfsUrl(totem.metadata.image)} wrapped ui={false} alt={totem.metadata?.name || 'Totem'} />
+            ) : (
+              <Segment placeholder>
+                <div style={{ color: '#888', marginTop: 8, textAlign: 'center' }}>No Image</div>
+              </Segment>
+            )}
+            <Card.Content>
+              <Card.Header>{totem.metadata?.name || `Totem #${totem.totemId}`}</Card.Header>
+              <Card.Meta>ID: {totem.totemId}</Card.Meta>
+              <Card.Description>
+                {totem.metadata?.description ? (
+                  <span>{totem.metadata.description}</span>
+                ) : (
+                  <span style={{ color: '#888', fontStyle: 'italic' }}>No description</span>
+                )}
+              </Card.Description>
+            </Card.Content>
+            <Card.Content extra>
+              <Button
+                fluid
+                basic
+                color='green'
+                onClick={() => {
+                  setSelectedTotem(totem);
+                  setModalOpen(true);
+                }}
+              >
+                View Details
+              </Button>
+            </Card.Content>
+          </Card>
+        ))}
+      </Card.Group>
+    </>
   );
 };
 

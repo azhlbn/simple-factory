@@ -1,5 +1,22 @@
 // Адреса контрактов для работы с тотемами
-export const TOTEM_FACTORY_ADDRESS = "0xdEA87AA6Dc228865F6F8219c7fa739CE0587dcC5"; 
+// Конфигурация сети Minato
+export const MINATO_NETWORK = {
+  chainId: '0x79A', // 1946 в десятичной системе
+  chainName: 'Minato',
+  nativeCurrency: {
+    name: 'MNTO',
+    symbol: 'MNTO',
+    decimals: 18
+  },
+  rpcUrls: ['https://rpc.minato.network'],
+  blockExplorerUrls: ['https://explorer.minato.network']
+};
+
+// The Graph API URL
+export const GRAPH_API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL;
+
+// Адрес фабрики тотемов в сети Minato
+export const TOTEM_FACTORY_ADDRESS = '0xdEA87AA6Dc228865F6F8219c7fa739CE0587dcC5';
 
 // ABI для TotemFactory контракта
 export const TOTEM_FACTORY_ABI = [
@@ -464,5 +481,3 @@ export const TOTEM_TOKEN_ABI = [
   }
 ];
 
-// Конфигурация для The Graph
-export const GRAPH_API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://api.studio.thegraph.com/query/101656/mytho-minato/version/latest";

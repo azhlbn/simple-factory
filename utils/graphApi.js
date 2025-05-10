@@ -20,12 +20,49 @@ export const formatIpfsUrl = (ipfsUrl) => {
  * @param {number} skip - Number of items to skip
  * @returns {Promise<Array>} - Array of totem objects
  */
-export const fetchAllTotems = async (first = 10, skip = 0) => {
+/**
+ * Задержка на указанное количество миллисекунд
+ * @param {number} ms - Время задержки в миллисекундах
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Запрос к Graph API с повторными попытками
+ * @param {string} url - URL для запроса
+ * @param {Object} options - Опции для fetch
+ * @param {number} retries - Количество попыток
+ * @returns {Promise<Response>}
+ */
+const fetchWithRetry = async (url, options, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        const waitTime = Math.pow(2, i) * 1000; // Экспоненциальная задержка
+        console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await delay(1000); // Задержка перед повторной попыткой
+    }
+  }
+  throw new Error('Max retries reached');
+};
+
+export const fetchAllTotems = async (first = 10, skip = 0, network = 'minato') => {
   try {
     // Используем локальный прокси-сервер для обхода ограничений CORS
     const graphApiUrl = '/api/graph-proxy';
     
-    if (!process.env.NEXT_PUBLIC_GRAPH_API_URL && !process.env.GRAPH_API_URL) {
+    // Проверяем, что используется правильная сеть
+    if (network !== 'minato') {
+      throw new Error('Only Minato network is supported');
+    }
+    
+    if (!process.env.NEXT_PUBLIC_GRAPH_API_URL) {
       console.warn('Graph API URL not configured in environment variables');
       // Продолжаем выполнение, так как прокси использует URL по умолчанию
     }
@@ -42,12 +79,11 @@ export const fetchAllTotems = async (first = 10, skip = 0) => {
           totemAddr
           totemTokenAddr
           totemId
-          blockTimestamp
         }
       }
     `;
     
-    const response = await fetch(graphApiUrl, {
+    const response = await fetchWithRetry(graphApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -55,10 +91,26 @@ export const fetchAllTotems = async (first = 10, skip = 0) => {
       body: JSON.stringify({ query }),
     });
     
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const result = await response.json();
+    console.log('Graph API response:', result);
     
     if (result.errors) {
+      console.error('Graph API errors:', result.errors);
       throw new Error(result.errors[0].message);
+    }
+
+    if (!result.data) {
+      console.error('No data in response:', result);
+      throw new Error('No data received from The Graph');
+    }
+
+    if (!result.data.totemCreateds) {
+      console.error('No totemCreateds in response:', result.data);
+      throw new Error('No totemCreateds data received from The Graph');
     }
     
     // Преобразуем данные в формат, совместимый с нашим приложением
@@ -66,8 +118,7 @@ export const fetchAllTotems = async (first = 10, skip = 0) => {
       id: totem.id,
       totemAddress: totem.totemAddr,
       tokenAddress: totem.totemTokenAddr,
-      totemId: totem.totemId,
-      createdAt: totem.blockTimestamp
+      totemId: totem.totemId
     }));
     
     return totems;
@@ -102,12 +153,15 @@ export const fetchTotemById = async (id) => {
           totemAddr
           totemTokenAddr
           totemId
+          creator
+          blockNumber
           blockTimestamp
+          transactionHash
         }
       }
     `;
     
-    const response = await fetch(graphApiUrl, {
+    const response = await fetchWithRetry(graphApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -130,8 +184,7 @@ export const fetchTotemById = async (id) => {
       id: totem.id,
       totemAddress: totem.totemAddr,
       tokenAddress: totem.totemTokenAddr,
-      totemId: totem.totemId,
-      createdAt: totem.blockTimestamp
+      totemId: totem.totemId
     };
   } catch (error) {
     console.error(`Error fetching totem with id ${id}:`, error);
@@ -164,12 +217,15 @@ export const fetchTotemByAddress = async (totemAddress) => {
           totemAddr
           totemTokenAddr
           totemId
+          creator
+          blockNumber
           blockTimestamp
+          transactionHash
         }
       }
     `;
     
-    const response = await fetch(graphApiUrl, {
+    const response = await fetchWithRetry(graphApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -192,8 +248,7 @@ export const fetchTotemByAddress = async (totemAddress) => {
       id: totem.id,
       totemAddress: totem.totemAddr,
       tokenAddress: totem.totemTokenAddr,
-      totemId: totem.totemId,
-      createdAt: totem.blockTimestamp
+      totemId: totem.totemId
     };
   } catch (error) {
     console.error(`Error fetching totem with address ${totemAddress}:`, error);
