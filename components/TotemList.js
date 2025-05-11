@@ -113,6 +113,48 @@ const TotemList = ({ provider }) => {
   const textColor = useColorModeValue('white', 'white');
   const subTextColor = useColorModeValue('gray.400', 'gray.400');
 
+  // Display loading state
+  if (graphLoading) {
+    return (
+      <Container maxW="7xl" py={10}>
+        <Box textAlign="center" py={10}>
+          <Spinner size="xl" color="brand.primary" thickness="4px" />
+          <Text mt={4} color="gray.400">Loading Totems...</Text>
+        </Box>
+      </Container>
+    );
+  }
+
+  // Display error state
+  if (graphError) {
+    return (
+      <Container maxW="7xl" py={10}>
+        <Alert status="error" borderRadius="xl" variant="left-accent">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">Error Loading Totems</Text>
+            <Text>{graphError.message}</Text>
+          </Box>
+        </Alert>
+      </Container>
+    );
+  }
+
+  // Display empty state
+  if (!totems || totems.length === 0) {
+    return (
+      <Container maxW="7xl" py={10}>
+        <Alert status="info" borderRadius="xl" variant="left-accent">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">No Totems Found</Text>
+            <Text>No totems have been created yet.</Text>
+          </Box>
+        </Alert>
+      </Container>
+    );
+  }
+
   return (
     <Container maxW="7xl" py={10}>
       <Box>
