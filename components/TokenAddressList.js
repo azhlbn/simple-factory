@@ -167,7 +167,7 @@ const TokenAddressList = ({ provider }) => {
           <Tr bg={headerBg}>
             <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Totem ID</Th>
             <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Token Address</Th>
-            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Creator</Th>
+            <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Totem Address</Th>
             <Th color="gray.300" py={4} px={6} borderBottom="1px solid" borderColor={borderColor}>Actions</Th>
           </Tr>
         </Thead>

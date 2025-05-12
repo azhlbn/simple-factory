@@ -1,9 +1,0 @@
-type TotemCreated @entity(immutable: true) {
-  id: Bytes!
-  totemAddr: Bytes! # address
-  totemTokenAddr: Bytes! # address
-  totemId: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
